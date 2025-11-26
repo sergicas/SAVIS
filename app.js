@@ -242,6 +242,37 @@ function renderAvatars(filter = 'all') {
     });
 }
 
+// ==========================================
+// GESTIÓ DE L'HISTORIAL
+// ==========================================
+
+function getChatHistory(avatarId) {
+    const history = localStorage.getItem(`chat_history_${avatarId}`);
+    return history ? JSON.parse(history) : [];
+}
+
+function saveChatHistory(avatarId, messages) {
+    localStorage.setItem(`chat_history_${avatarId}`, JSON.stringify(messages));
+}
+
+function loadChatHistory(avatarId) {
+    const history = getChatHistory(avatarId);
+    history.forEach(msg => {
+        // Renderitzem directament sense guardar de nou
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `message ${msg.sender}`;
+
+        const formattedText = msg.text
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>')
+            .replace(/\n/g, '<br>');
+
+        msgDiv.innerHTML = formattedText;
+        chatMessages.appendChild(msgDiv);
+    });
+    scrollToBottom();
+}
+
 function selectAvatar(id) {
 
     currentAvatar = AVATARS.find(a => a.id === id);
@@ -258,16 +289,25 @@ function selectAvatar(id) {
     document.getElementById('chat-avatar-name').textContent = currentAvatar.name;
     document.getElementById('chat-avatar-role').textContent = currentAvatar.role;
 
-    // Reset
+    // Reset UI
     chatMessages.innerHTML = '';
-    chatHistory = [];
+    chatHistory = []; // Reset local memory array
 
     showScreen('chat');
 
-    // Missatge inicial
-    setTimeout(() => {
-        addMessage(currentAvatar.greeting, 'bot');
-    }, 600);
+    // Carregar historial persistent
+    const savedHistory = getChatHistory(currentAvatar.id);
+
+    if (savedHistory.length > 0) {
+        loadChatHistory(currentAvatar.id);
+        // Sincronitzem l'array en memòria amb el persistent
+        chatHistory = savedHistory;
+    } else {
+        // Si no hi ha historial, missatge inicial
+        setTimeout(() => {
+            addMessage(currentAvatar.greeting, 'bot');
+        }, 600);
+    }
 }
 
 function addMessage(text, sender) {
@@ -284,8 +324,13 @@ function addMessage(text, sender) {
     chatMessages.appendChild(msgDiv);
     scrollToBottom();
 
-    // Guardar a l'historial
+    // Guardar a l'historial en memòria
     chatHistory.push({ text: text, sender: sender });
+
+    // Guardar a localStorage si tenim un avatar seleccionat
+    if (currentAvatar) {
+        saveChatHistory(currentAvatar.id, chatHistory);
+    }
 }
 
 function showTypingIndicator() {
